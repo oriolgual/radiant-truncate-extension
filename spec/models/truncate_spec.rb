@@ -35,3 +35,28 @@ describe "truncate_words" do
     truncate_words("ɦɛĺłø ŵőřļđ".mb_chars, :length => 9, :omission => "...").should == "ɦɛĺłø..."
   end
 end
+
+describe "truncate_html" do
+  include ActionView::Helpers::TextHelper
+  before do
+    @html_text = %{<p>This text should be truncated using a method that checks the length in words and replaces the extra text with an elipsis or the given 'omission' attribute</p><p>so that the final text is not left with open HTML tags, but has the appropriate closing tag for the HTML</p>}
+    @plain_text = %{This text should be truncated using a method that checks the length in words and replaces the extra text with an elipsis or the given 'omission' attribute so that the final text is not left with open HTML tags, but has the appropriate closing tag for the HTML}
+    @default_html_result = %{<p>This text should be truncated using a method that checks the length in words and replaces the extra text with an elipsis or the given 'omission' attribute</p><p>so that the final text...</p>}
+    @short_html_result = %{<p>This text should be truncated using a method that checks the length in...</p>}
+    @plain_result = "This text should be truncated using a method that checks the length in words and replaces the extra text with an elipsis or the given 'omission' attribute so that the final text..."
+  end
+  it "should close any open HTML elements" do
+    truncate_html(@html_text).should == @default_html_result
+  end
+  it "should set the length in words to the given :length value" do
+    result = "This text should be truncated using a method that checks the length in..."
+    truncate_html(@html_text, :length => 11).should == @short_html_result
+  end
+  it "should truncate plain text" do
+    truncate_html(@plain_text).should == @plain_result
+  end
+  it "should set the omission text to the given :omission value" do
+    result = "This text should be truncated using a method that checks the length in...read more..."
+    truncate_html(@plain_text, :length => 11, :omission => "...read more...").should == result
+  end
+end

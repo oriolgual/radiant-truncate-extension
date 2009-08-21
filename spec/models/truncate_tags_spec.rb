@@ -10,55 +10,46 @@ describe TruncateTags do
       :status_id => '100'
     )
   end
-  
-  it "should truncate the text to the given 'chars' length" do
-    @page.should render("<r:truncate chars='400'>#{(%{This is a thousand monkeys working at a thousand typewriters. Soon, they'll have written the greatest novel known to mankind. (reads one of the typewriters) It was the best of times, it was the blurst of times?! you stupid monkey! (monkey screeches) Oh, shut up.} * 2)}</r:truncate>").as(%{This is a thousand monkeys working at a thousand typewriters. Soon, they'll have written the greatest novel known to mankind. (reads one of the typewriters) It was the best of times, it was the blurst of times?! you stupid monkey! (monkey screeches) Oh, shut up.This is a thousand monkeys working at a thousand typewriters. Soon, they'll have written the greatest novel known to mankind. (reads...})
+      
+  describe "<r:schmuncate>" do
+    it "should truncate the contents with ActionView::Base.truncate_html" do
+      @page.should render(
+        %{<r:schmuncate><p>This is a story about a very <strong>strong</strong> man</p><p>It is <em>very</em> boring.</p></r:schmuncate>}
+      ).as('<p>This is a story about a very <strong>strong</strong> man</p><p>It is <em>very</em> boring.</p>')
+    end
+    it "should accept an 'omission' attribute" do
+      test = %{<p>This text should be truncated using a method that checks the length in words and replaces the extra text with an elipsis or the given 'omission' attribute</p><p>so that the final text is not left with open HTML tags, but has the appropriate closing tag for the HTML</p>}
+      expected = %{<p>This text should be truncated using a method that checks the length in words and replaces the extra text with an elipsis or the given 'omission' attribute</p><p>so that the final text,,,</p>}
+      @page.should render(
+        %{<r:schmuncate omission=",,,">#{test}</r:schmuncate>}
+      ).as(expected)
+    end
+    it "should accept a 'length' attribute" do
+      test = %{<p>This text should be truncated using a method that checks the length in words and replaces the extra text with an elipsis or the given 'omission' attribute</p><p>so that the final text is not left with open HTML tags, but has the appropriate closing tag for the HTML</p>}
+      expected = %{<p>This text should be truncated using a method that checks the length...</p>}
+      @page.should render(
+        %{<r:schmuncate length="10">#{test}</r:schmuncate>}
+      ).as(expected)
+    end
+    describe "with strip_html set to 'true'" do
+      it "should strip html tags" do
+        @page.should render("<r:schmuncate strip_html='true'><div class='red'>Something</div> <ul><li>Lalala</li></ul></r:schmuncate>").as("Something Lalala")
+      end
+      it "should strip extra whitespace" do
+        @page.should render("<r:schmuncate strip_html='true'><div class='red'>                       Something</div>\n\n      <ul><li>Lalala</li></ul></r:schmuncate>").as("Something Lalala")
+      end
+      it "should not strip extra whitespace with strip_whitespace set to 'false'" do
+        @page.should render(
+          "<r:schmuncate strip_html='true' strip_whitespace='false'><div class='red'>          Something</div>\n\n                      
+             <ul><li>Lalala</li></ul></r:schmuncate>"
+        ).as("          Something\n\n                      \n   ...")
+      end
+      it "should not split words" do
+        @page.should render("<r:schmuncate strip_html='true' length='14'>Something to split</r:schmuncate>").as('Something...')
+      end
+      it "should split words with split_words set to 'true'" do
+        @page.should render("<r:schmuncate strip_html='true' length='14' split_words='true'>Something to split</r:schmuncate>").as('Something t...')
+      end
+    end
   end
-  
-  it "should truncate with keeping words intact" do
-    @page.should render("<r:truncate chars='10'>Something</r:truncate>").as('Something')
-    @page.should render(
-      "<r:truncate chars='20'>Something strange is there</r:truncate>"
-    ).as('Something strange...')
-    @page.should render(
-      "<r:truncate>Something strange is happened here. I think I should ask Sherlok Holmes about this.</r:truncate>"
-    ).as('Something strange is happened here. I think I...')
-  end
-  
-  it "should truncate with not keeping words intact" do
-    @page.should render(
-      "<r:truncate keep_words_intact='false' chars='10'>Something</r:truncate>"
-    ).as('Something')
-    @page.should render(
-      "<r:truncate keep_words_intact='false' chars='15'>Something strange is there</r:truncate>"
-    ).as('Something st...')
-  end
-  
-  it "should strip html tags" do
-    @page.should render(
-      "<r:truncate><div class='red'>Something</div> <ul><li>Lalala</li></ul></r:truncate>"
-    ).as("Something Lalala")
-    @page.should render(
-      "<r:truncate strip_html='false'><div class='red'>Something</div> <ul><li>Lalala</li></ul></r:truncate>"
-    ).as("<div class='red'>Something</div>...")
-  end
-  
-  it "should strip newlines" do
-    @page.should render(
-      "<r:truncate><div class='red'>                       Something</div>\n\n      <ul><li>Lalala</li></ul></r:truncate>"
-    ).as(" Something Lalala")
-    @page.should render(
-      "<r:truncate strip_newlines='false'>
-         <div class='red'>                       Something</div>\n\n      
-         <ul><li>Lalala</li></ul></r:truncate>"
-    ).as("\n                                Something\n\n   ...")
-  end
-  
-  it "should use different ellipses" do
-    @page.should render(
-      "<r:truncate chars='20' ellipses=',,,'>Something strange is there</r:truncate>"
-    ).as('Something strange,,,')
-  end
-
-  
 end

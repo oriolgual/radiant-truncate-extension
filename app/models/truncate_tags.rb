@@ -1,40 +1,63 @@
 module TruncateTags
   include Radiant::Taggable
-
+  
   desc %{
-    Truncate contents. Attributes:
-
-    1. @chars@ - number of chars within the tag (include ellipses). Default is 50.
-    2. @keep_words_intact@ - can be 'true' or 'false'. If true, it will leave whole words, but not cut them ('hello...' instead of 'hello fr...'). Default is true.
-    3. @ellipses@ - default is '...'
-    4. @strip_html@ - can be 'true' of 'false'. Strips all HTML tags. Default is 'true'
-    5. @strip_newlines@ - can be 'true' or 'false'. Strips all \\r and \\n. Default is 'true'
-
-    *Usage:*
-
-    <pre><code><r:truncate [chars='50'] [keep_words_intact='true'] [ellipses='...'] [strip_html='true'] [strip_newlines='true']>
-      <r:snippet name="snip" />
-    </r:truncate></code></pre>
+    Truncate the contents of the tag. When using this tag, by default, HTML is balanced
+    meaning you won't have a &#60;p&#62; without it's closing tag. This tag may be used in
+    2 modes. In one you work with HTML, in the other you work only with the text. 
+    
+    In mode 1, your only options are the @length@ and the @omission@:
+    
+    * @length@ is the number of words to display from the given content. This is 30 by default.
+    * @omission@ is the text used inplace of the omitted content. This is "..." by default.
+    
+    *Mode 1 Examples:*
+    
+    <pre><r:truncate><r:content /></r:truncate></pre>
+    
+    <pre><r:truncate length="100" omission="...to be continued..."><r:content /></r:truncate></pre>
+    
+    The previous example would limit the content to 100 words and replace the extra content with the omission attribute.
+    
+    To use mode 2 (working only with text), *you must set @strip_html="true"@*. This changes the behaviour of the @length@ attribute to mean the number of *characters* of text (rather than _number of *words*_ as in mode 1).
+    
+    In mode 2 you'll have options such as 
+    
+    * @split_words@: whether or not to split words (so you can prevent a word like "happily" at the end of the content from appearing as "hap..."). This is *false by default*, meaning words will not be split.
+    * @strip_whitespace@: whether or not you want to strip out extra whitespace (e.g. leading and trailing spaces, and line breaks). This is *true by default*
+    * and the @length@ (number of characters in this case) and @omission@ attributes still apply
+      
+    *Mode 2 Examples:*
+    
+    <pre><r:truncate strip_html="true"><r:content /></r:truncate></pre>
+    
+    <pre><r:truncate strip_html="true" omission="---"><r:content /></r:truncate></pre>
+    
+    <pre><r:truncate strip_html="true" strip_whitespace="false" split_words="true"><r:content /></r:truncate></pre>
+    
+    When using mode 1 (meaning @strip_html@ is *not* set, or is false) @strip_whitespace@ and @split_words@ _will be ignored_.
   }
-  tag 'truncate' do |tag|
-    text = tag.expand
-    text = text.mb_chars
-    
-    chars = (tag.attr['chars'] || 50).to_i
-    keep_words_intact = tag.attr['keep_words_intact'] ? (tag.attr['keep_words_intact'] == 'true') : true
-    ellipses = (tag.attr['ellipses'] || '...').mb_chars
-    strip_html = tag.attr['strip_html'] ? (tag.attr['strip_html'] == 'true') : true
-    strip_newlines = tag.attr['strip_newlines'] ? (tag.attr['strip_newlines'] == 'true') : true
-    
+  tag 'schmuncate' do |tag|
+    content = tag.expand
+    length = tag.attr['length']
+    omission = tag.attr['omission']
+    options = {}
+    options[:length] = length.to_i if length
+    options[:omission] = omission if omission
     helper = ActionView::Base.new
     
-    text = helper.strip_tags(text) if strip_html
-    text = text.gsub(/\s+/, " ") if strip_newlines
-    unless text.length <= chars
-      truncate_method = keep_words_intact ? 'truncate_words' : 'truncate'
-      text = helper.send(truncate_method, text, :length => chars, :omission => ellipses)
+    strip_html = tag.attr['strip_html'] == 'true' # defaults to false. 'true' must be explicitly set
+    if strip_html
+      content = content.mb_chars
+      content = helper.strip_tags(content)
+      strip_whitespace = !(tag.attr['strip_whitespace'] == 'false') # defaults to true. 'false' must be explicitly set
+      content = content.strip.gsub(/\s+/, " ") if strip_whitespace
+      split_words = tag.attr['split_words'] == 'true' # defaults to false. 'true' must be explicitly set
+      content = split_words ? helper.truncate(content, options) : helper.truncate_words(content, options)
+    else
+      content = helper.truncate_html(content, options)
     end
-    text
+    content
   end
   
 end
@@ -42,6 +65,7 @@ end
 module ActionView::Helpers::TextHelper
 
   def truncate_words(text, *args)
+    text = text.mb_chars
     options = args.extract_options!
     truncate_string = options[:omission] || '...'
     length = options[:length] || 50
@@ -56,6 +80,78 @@ module ActionView::Helpers::TextHelper
       idx = str.index(/\s/, idx.to_i + 1)
     end
     (str[0, last_idx] + truncate_string).to_s
+  end
+  
+  def truncate_html(input, *args)
+    options = args.extract_options!
+    truncate_string = options[:omission] || '...'
+    num_words = (options[:length] || 30).to_i
+  	fragment = Nokogiri::HTML.fragment(input)
+
+  	current = fragment.children.first
+  	count = 0
+
+  	while current != nil
+  		# we found a text node
+  		if current.class == Nokogiri::XML::Text
+  			count += current.text.split.length
+  			# we reached our limit, let's get outta here!
+  			break if count > num_words
+  		end
+
+  		if current.children.length > 0
+  			# this node has children, can't be a text node,
+  			# lets descend and look for text nodes
+  			current = current.children.first
+  		elsif not current.next.nil?
+  			#this has no children, but has a sibling, let's check it out
+  			current = current.next
+  		else 
+  			# we are the last child, we need to ascend until we are
+  			# either done or find a sibling to continue on to
+  			n = current
+  			if n.parent
+    			while n.parent.next and n.parent.next.nil? and n != fragment
+    				n = n.parent
+    			end
+    			unless n == fragment
+    			  current = n.parent.next
+    			end
+    		else
+    		  current = nil if n == fragment
+        end
+        # if n == fragment
+        #   current = nil 
+        # else
+        #   current = n.parent.next
+        # end
+  		end
+  	end
+
+  	if count >= num_words
+  		new_content = current.text.split(/ /)
+
+  		# the most confusing part. we want to grab just the first [num_words]
+  		# number of words, but this last text node could send us way over
+  		# our limit.  So, we need to find the difference between the number
+  		# of words we wanted and the number of words total we found (count - num_words)
+  		# to find how many we need to take off of this last text node
+  		# so we subtract from the number of words in this text node.
+  		# Finally we add 1 because we are doing a range and we need to get the index right.
+  		new_content = new_content[0..(new_content.length-(count-num_words)+1)]
+
+  		current.content= new_content.join(' ') + truncate_string
+
+  		#remove everything else
+  		while current != fragment
+  			while not current.next.nil?
+  				current.next.remove
+  			end
+  			current = current.parent
+  		end
+  	end
+  	
+    fragment.to_html
   end
   
 end

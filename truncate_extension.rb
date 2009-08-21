@@ -1,17 +1,13 @@
-require 'application_controller'
-
 class TruncateExtension < Radiant::Extension
   version "0.1"
-  description "Adds truncate tag to Radiant for truncating data within the tag"
+  description "Adds truncate tag to Radiant for truncating content"
+  url "http://github.com/saturnflyer/radiant-truncate-extension"
   
-  define_routes do |map|
+  extension_config do |config|
+    config.gem 'nokogiri'
   end
   
   def activate
     Page.send :include, TruncateTags
   end
-  
-  def deactivate
-  end
-  
 end
