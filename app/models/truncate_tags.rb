@@ -37,7 +37,7 @@ module TruncateTags
     
     When using mode 1 (meaning @strip_html@ is *not* set, or is false) @strip_whitespace@ and @split_words@ _will be ignored_.
   }
-  tag 'schmuncate' do |tag|
+  tag 'truncate' do |tag|
     content = tag.expand
     length = tag.attr['length']
     omission = tag.attr['omission']
