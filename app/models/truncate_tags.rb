@@ -82,75 +82,115 @@ module ActionView::Helpers::TextHelper
     (str[0, last_idx] + truncate_string).to_s
   end
   
+  # def word_count(text)
+  #   text.mb_chars.split.length
+  # end
+  # 
+  # require 'rexml/parsers/pullparser'
+  # def truncate_html(input, *args)
+  #   options = args.extract_options!
+  #   truncate_string = options[:omission] || '...'
+  #   num_words = (options[:length] || 30).to_i
+  #   p = REXML::Parsers::PullParser.new(input)
+  #   tags = []
+  #   words_left = num_words
+  #   puts words_left
+  #   results = ''
+  #   while p.has_next? && words_left > 0
+  #     p_e = p.pull
+  #     case p_e.event_type
+  #     when :start_element
+  #       tags.push p_e[0]
+  #       attributes = p_e[1].inject('') { |s, (k, v)| s << %{#{k.downcase}="#{v}" } }.strip
+  #       attributes = " #{attributes}" unless attributes.empty?
+  #       results << "<#{tags.last}#{attributes}>"
+  #     when :end_element
+  #       results << "</#{tags.pop}>"
+  #     when :text
+  #       truncated_text = truncate_words(p_e[0], :length => words_left)
+  #       results << truncated_text
+  #       words_left -= word_count(truncated_text)
+  #       puts words_left
+  #       puts word_count(p_e[0])
+  #     else
+  #       results << "<!-- #{p_e.inspect} -->"
+  #     end
+  #   end
+  #   tags.reverse.each do |tag|
+  #     results << "</#{tag}>"
+  #   end
+  #   results
+  # end
+  
   def truncate_html(input, *args)
     options = args.extract_options!
     truncate_string = options[:omission] || '...'
     num_words = (options[:length] || 30).to_i
-  	fragment = Nokogiri::HTML.fragment(input)
-
-  	current = fragment.children.first
-  	count = 0
-
-  	while current != nil
-  		# we found a text node
-  		if current.class == Nokogiri::XML::Text
-  			count += current.text.split.length
-  			# we reached our limit, let's get outta here!
-  			break if count > num_words
-  		end
-
-  		if current.children.length > 0
-  			# this node has children, can't be a text node,
-  			# lets descend and look for text nodes
-  			current = current.children.first
-  		elsif not current.next.nil?
-  			#this has no children, but has a sibling, let's check it out
-  			current = current.next
-  		else 
-  			# we are the last child, we need to ascend until we are
-  			# either done or find a sibling to continue on to
-  			n = current
-  			if n.parent
-    			while n.parent.next and n.parent.next.nil? and n != fragment
-    				n = n.parent
-    			end
-    			unless n == fragment
-    			  current = n.parent.next
-    			end
-    		else
-    		  current = nil if n == fragment
+    fragment = Nokogiri::HTML.fragment(input)
+  
+    current = fragment.children.first
+    count = 0
+  
+    while current != nil
+      # we found a text node
+      if current.class == Nokogiri::XML::Text
+        count += current.text.split.length
+        # we reached our limit, let's get outta here!
+        break if count > num_words
+      end
+  
+      if current.children.length > 0
+        # this node has children, can't be a text node,
+        # lets descend and look for text nodes
+        current = current.children.first
+      elsif not current.next.nil?
+        #this has no children, but has a sibling, let's check it out
+        current = current.next
+      else 
+        # we are the last child, we need to ascend until we are
+        # either done or find a sibling to continue on to
+        n = current
+        if n.parent
+          while n.parent.next and n.parent.next.nil? and n != fragment
+            n = n.parent
+          end
+          unless n == fragment
+            current = n.parent.next
+          end
+        else
+          current = nil if n == fragment
         end
         # if n == fragment
         #   current = nil 
         # else
         #   current = n.parent.next
         # end
-  		end
-  	end
-
-  	if count >= num_words
-  		new_content = current.text.split(/ /)
-
-  		# the most confusing part. we want to grab just the first [num_words]
-  		# number of words, but this last text node could send us way over
-  		# our limit.  So, we need to find the difference between the number
-  		# of words we wanted and the number of words total we found (count - num_words)
-  		# to find how many we need to take off of this last text node
-  		# so we subtract from the number of words in this text node.
-  		# Finally we add 1 because we are doing a range and we need to get the index right.
-  		new_content = new_content[0..(new_content.length-(count-num_words)+1)]
-
-  		current.content= new_content.join(' ') + truncate_string
-
-  		#remove everything else
-  		while current != fragment
-  			while not current.next.nil?
-  				current.next.remove
-  			end
-  			current = current.parent
-  		end
-  	end
-  	
+      end
+    end
+  
+    if count >= num_words
+      new_content = current.text.split(/ /)
+  
+      # the most confusing part. we want to grab just the first [num_words]
+      # number of words, but this last text node could send us way over
+      # our limit.  So, we need to find the difference between the number
+      # of words we wanted and the number of words total we found (count - num_words)
+      # to find how many we need to take off of this last text node
+      # so we subtract from the number of words in this text node.
+      # Finally we add 1 because we are doing a range and we need to get the index right.
+      new_content = new_content[0..(new_content.length-(count-num_words)+1)]
+  
+      current.content= new_content.join(' ') + truncate_string
+  
+      #remove everything else
+      while current != fragment
+        while not current.next.nil?
+          current.next.remove
+        end
+        current = current.parent
+      end
+    end
+    
     fragment.to_html
   end
   
