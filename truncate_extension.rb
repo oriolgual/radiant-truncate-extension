@@ -4,7 +4,7 @@ class TruncateExtension < Radiant::Extension
   url "http://github.com/saturnflyer/radiant-truncate-extension"
   
   extension_config do |config|
-    config.gem 'nokogiri'
+    require 'nokogiri'
   end
   
   def activate
