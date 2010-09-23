@@ -128,7 +128,7 @@ module ActionView::Helpers::TextHelper
   		end
   	end
 
-  	if count >= num_words
+  	if current and count >= num_words
   		new_content = current.text.split(/ /)
 
   		# the most confusing part. we want to grab just the first [num_words]
